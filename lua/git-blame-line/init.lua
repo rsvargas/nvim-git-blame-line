@@ -29,7 +29,11 @@ local function git_toplevel()
 end
 
 local function git_file_path()
-	local escaped_toplevel = vim.fn.escape(git_toplevel() .. "/", ".")
+	local toplevel = git_toplevel()
+	if toplevel == nil then
+		return nil
+	end
+	local escaped_toplevel = vim.fn.escape(toplevel .. "/", ".")
 	local full_file = vim.fn.expand("%:p")
 	local relative_file = vim.fn.substitute(full_file, escaped_toplevel, "", "")
 	local cmd = "cd " .. git_toplevel() .. "; git cat-file -e HEAD:" .. relative_file
@@ -54,7 +58,7 @@ end
 local function get_current_pos_data()
 	local line = vim.fn.line(".")
 	local file = git_file_path()
-	if file == nil then
+	if file == nil or (#file == 0) then
 		return nil
 	end
 	local bufnr = api.nvim_get_current_buf()
@@ -68,12 +72,13 @@ local function get_current_pos_data()
 		.. file
 	local blame = vim.fn.systemlist(cmd, bufnr)
 
-	local commit = blame[1]:sub(1, 41)
+	local commit = blame[1]:sub(1, 40)
 	local annotation
 	if commit == "0000000000000000000000000000000000000000" then
 		annotation = M.not_yet_committed_message
+	else
+		annotation = get_formatted_commit(commit)
 	end
-	annotation = get_formatted_commit(commit)
 
 	local result = { commit = commit, repo = git_toplevel(), file = file, line = line, annotation = annotation }
 
@@ -128,6 +133,7 @@ function M.do_blame_line()
 	if data == nil then
 		return
 	end
+	-- vim.print(data)
 	annotate_line(api.nvim_get_current_buf(), data.line, data.annotation)
 end
 
@@ -138,7 +144,6 @@ function M.enable()
 	M.au_group = api.nvim_create_augroup("git-blame-line", { clear = true })
 	api.nvim_create_autocmd("CursorMoved", {
 		group = M.au_group,
-		-- buffer = api.nvim_get_current_buf(),
 		callback = debounce_func(M.do_blame_line, M.debounce_time),
 	})
 

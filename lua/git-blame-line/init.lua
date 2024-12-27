@@ -16,11 +16,14 @@ M.highlight = "Comment"
 M.debounce_time = 200
 
 local function git_toplevel()
-	if vim.b.blame_line_toplevel ~= nil then
+	if vim.bo.buftype ~= "" then -- not a file
+		return nil
+	end
+	if vim.b.blame_line_toplevel ~= nil then -- cache
 		return vim.b.blame_line_toplevel
 	end
 	local this_path = vim.fn.expand("%:p:h")
-	local val = vim.fn.systemlist("cd " .. this_path .. "; git rev-parse --show-toplevel")
+	local val = vim.fn.systemlist("cd " .. this_path .. "&& git rev-parse --show-toplevel")
 	if vim.v.shell_error ~= 0 then
 		return nil
 	end
@@ -38,7 +41,7 @@ local function git_file_path()
 	local relative_file = vim.fn.substitute(full_file, escaped_toplevel, "", "")
 	local cmd = "cd " .. git_toplevel() .. "; git cat-file -e HEAD:" .. relative_file
 
-	local _file_exists = vim.fn.system(cmd)
+	local _ = vim.fn.system(cmd) -- file exists?
 	if vim.v.shell_error ~= 0 then
 		-- TODO: disable for this buffer?
 		return nil
@@ -71,6 +74,9 @@ local function get_current_pos_data()
 		.. " -M --porcelain --contents - "
 		.. file
 	local blame = vim.fn.systemlist(cmd, bufnr)
+	if vim.v.shell_error ~= 0 then
+		return nil
+	end
 
 	local commit = blame[1]:sub(1, 40)
 	local annotation

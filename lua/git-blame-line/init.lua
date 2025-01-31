@@ -32,6 +32,9 @@ local function git_toplevel()
 end
 
 local function git_file_path()
+  if vim.b.blame_line_file ~= nil then -- cache
+    return vim.b.blame_line_file
+  end
   local toplevel = git_toplevel()
   if toplevel == nil then
     return nil
@@ -46,6 +49,7 @@ local function git_file_path()
     -- TODO: disable for this buffer?
     return nil
   end
+  vim.b.blame_line_file = relative_file
   return relative_file
 end
 
@@ -86,7 +90,14 @@ local function get_current_pos_data()
     annotation = get_formatted_commit(commit)
   end
 
-  local result = { commit = commit, repo = git_toplevel(), file = file, line = line, annotation = annotation }
+  local result = {
+    commit = commit,
+    repo = git_toplevel(),
+    file = file,
+    line = line,
+    bufnr = bufnr,
+    annotation = annotation
+  }
 
   return result
 end
@@ -140,7 +151,7 @@ function M.do_blame_line()
     return
   end
   -- vim.print(data)
-  annotate_line(api.nvim_get_current_buf(), data.line, data.annotation)
+  annotate_line(data.bufnr, data.line, data.annotation)
 end
 
 function M.enable()
